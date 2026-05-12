@@ -24,7 +24,11 @@ export const getAuthRedirectUrl = () => {
   if (configuredAuthRedirectUrl) return configuredAuthRedirectUrl;
 
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}/${AUTH_CALLBACK_PATH}`;
+    const pathParts = String(window.location.pathname || '').split('/').filter(Boolean);
+    const hasProjectBasePath = pathParts[0] && pathParts[0] !== AUTH_CALLBACK_PATH.split('/')[0];
+    const basePath = hasProjectBasePath ? `/${pathParts[0]}` : '';
+
+    return `${window.location.origin}${basePath}/${AUTH_CALLBACK_PATH}`;
   }
 
   return makeRedirectUri({

@@ -1,6 +1,10 @@
 .expo/
 .expo-export-test/
 .expo-export-test-android/
+.deploy-pages/
+.github-device.json
+.github-token.sec
+github-login*.log
 node_modules/
 .vscode/
 .env
