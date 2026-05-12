@@ -1,0 +1,10 @@
+.expo/
+.expo-export-test/
+.expo-export-test-android/
+node_modules/
+.vscode/
+.env
+.env.local
+.env.*.local
+expo-*.log
+supabase/.temp/

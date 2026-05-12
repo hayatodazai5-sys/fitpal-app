@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "FitPAL",
+    "slug": "fitpal",
+    "scheme": "fitpal",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#7A1A1A"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.fitpal.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#7A1A1A"
+      },
+      "package": "com.fitpal.app"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-web-browser",
+        {
+          "experimentalLauncherActivity": false
+        }
+      ]
+    ]
+  }
+}
