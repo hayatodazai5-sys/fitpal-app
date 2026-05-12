@@ -163,34 +163,45 @@ export default function HomeScreen({ navigation }) {
   }, [user?.id, workoutPlan?.generatedAt, workoutPlan?.totalDays]);
 
   const loadProgress = async () => {
-    if (!user) return;
-    const [{ data }, { data: status }] = await Promise.all([
-      getWeeklyProgress(user.id),
-      getWorkoutCompletionStatus(user.id, workoutPlan),
-    ]);
+    if (!user?.id) return;
 
-    if (status) {
-      setCompletionStatus(status);
-    }
+    try {
+      const [
+        { data, error: progressError },
+        { data: status, error: statusError },
+      ] = await Promise.all([
+        getWeeklyProgress(user.id),
+        getWorkoutCompletionStatus(user.id, workoutPlan),
+      ]);
 
-    if (data) {
-      const chart = [0, 0, 0, 0, 0, 0, 0];
-      let calories = 0, duration = 0, workouts = 0;
-      const todayKey = new Date().toDateString();
+      if (progressError) throw progressError;
+      if (statusError) throw statusError;
 
-      data.forEach((s) => {
-        const d = new Date(s.completed_at).getDay();
-        const idx = d === 0 ? 6 : d - 1;
-        chart[idx] = (chart[idx] || 0) + (s.duration_minutes || 0);
+      if (status) {
+        setCompletionStatus(status);
+      }
 
-        if (new Date(s.completed_at).toDateString() === todayKey) {
-          calories += s.calories_burned || 0;
-          duration += s.duration_minutes || 0;
-          workouts++;
-        }
-      });
-      setWeekData(chart);
-      setTodayStats({ calories, duration, workouts, steps: workouts * 1200 });
+      if (data) {
+        const chart = [0, 0, 0, 0, 0, 0, 0];
+        let calories = 0, duration = 0, workouts = 0;
+        const todayKey = new Date().toDateString();
+
+        data.forEach((s) => {
+          const d = new Date(s.completed_at).getDay();
+          const idx = d === 0 ? 6 : d - 1;
+          chart[idx] = (chart[idx] || 0) + (s.duration_minutes || 0);
+
+          if (new Date(s.completed_at).toDateString() === todayKey) {
+            calories += s.calories_burned || 0;
+            duration += s.duration_minutes || 0;
+            workouts++;
+          }
+        });
+        setWeekData(chart);
+        setTodayStats({ calories, duration, workouts, steps: workouts * 1200 });
+      }
+    } catch (err) {
+      console.warn('FitPAL home progress load failed:', err);
     }
   };
 

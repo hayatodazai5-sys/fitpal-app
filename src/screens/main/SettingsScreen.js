@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   TouchableOpacity, Alert, TextInput,
@@ -80,6 +80,14 @@ export default function SettingsScreen({ navigation }) {
     profile?.full_name || user?.user_metadata?.full_name
   );
 
+  useEffect(() => {
+    if (editMode) return;
+
+    setHeight(String(profile?.height_cm || ''));
+    setWeight(String(profile?.weight_kg || ''));
+    setEquipment(profile?.equipment || []);
+  }, [editMode, profile?.equipment, profile?.height_cm, profile?.weight_kg]);
+
   const toggleEquip = (id) => {
     if (id === 'no_equipment') { setEquipment(['no_equipment']); return; }
     const filtered = equipment.filter(e => e !== 'no_equipment');
@@ -89,6 +97,11 @@ export default function SettingsScreen({ navigation }) {
   const handleSave = async () => {
     setSaving(true);
     try {
+      if (!user?.id) {
+        Alert.alert('Session Required', 'Please sign in again before saving profile changes.');
+        return;
+      }
+
       const h = parseFloat(height);
       const w = parseFloat(weight);
       if (!Number.isFinite(h) || !Number.isFinite(w) || h <= 0 || w <= 0) {
@@ -147,7 +160,7 @@ export default function SettingsScreen({ navigation }) {
       setEditMode(false);
       Alert.alert('Saved!', 'Your profile and workout plan have been updated.');
     } catch (err) {
-      Alert.alert('Error', err.message);
+      Alert.alert('Error', err.message || 'Could not save your profile changes.');
     } finally {
       setSaving(false);
     }

@@ -58,17 +58,24 @@ export default function ProgressScreen() {
   }, [user?.id]);
 
   const loadSessions = async () => {
-    if (!user) return;
-    const { data } = await getWorkoutSessions(user.id, 20);
-    if (data) {
-      setSessions(data);
-      const chart = [0, 0, 0, 0, 0, 0, 0];
-      data.slice(0, 7).forEach((s) => {
-        const d = new Date(s.completed_at).getDay();
-        const idx = d === 0 ? 6 : d - 1;
-        chart[idx] = (chart[idx] || 0) + (s.duration_minutes || 0);
-      });
-      setWeekData(chart);
+    if (!user?.id) return;
+
+    try {
+      const { data, error } = await getWorkoutSessions(user.id, 20);
+      if (error) throw error;
+
+      if (data) {
+        setSessions(data);
+        const chart = [0, 0, 0, 0, 0, 0, 0];
+        data.slice(0, 7).forEach((s) => {
+          const d = new Date(s.completed_at).getDay();
+          const idx = d === 0 ? 6 : d - 1;
+          chart[idx] = (chart[idx] || 0) + (s.duration_minutes || 0);
+        });
+        setWeekData(chart);
+      }
+    } catch (err) {
+      console.warn('FitPAL progress sessions load failed:', err);
     }
   };
 

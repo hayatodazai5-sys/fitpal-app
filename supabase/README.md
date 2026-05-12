@@ -66,10 +66,10 @@ The app uses Supabase OAuth with Expo deep linking:
 fitpal://auth/callback
 ```
 
-On web, FitPAL uses the current browser origin plus `/auth/callback`, so the callback follows the actual Expo port instead of a stale `localhost` value. If you need to pin this to one URL, set:
+On web, FitPAL uses the current browser origin plus any deployed base path. This keeps OAuth callbacks on a route that static hosts can serve without rewrite rules. If you need to pin this to one URL, set:
 
 ```text
-EXPO_PUBLIC_AUTH_REDIRECT_URL=http://localhost:8081/auth/callback
+EXPO_PUBLIC_AUTH_REDIRECT_URL=http://localhost:8081
 ```
 
 The Supabase redirect allow list should include:
@@ -77,11 +77,11 @@ The Supabase redirect allow list should include:
 ```text
 fitpal://**
 exp://**/--/auth/callback
-http://localhost:8081/auth/callback
-http://127.0.0.1:8081/auth/callback
+http://localhost:8081
+http://127.0.0.1:8081
 ```
 
-If Expo starts on a different port, add that exact callback too, for example `http://localhost:8083/auth/callback`.
+If Expo starts on a different port, add that exact app root too, for example `http://localhost:8083`. For static hosting under a subpath, add the deployed base path, for example `https://example.com/fitpal`.
 
 To make Google sign-in complete successfully, enable the Google provider in Supabase Dashboard > Authentication > Providers > Google, or patch the project auth config with:
 

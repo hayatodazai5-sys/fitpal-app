@@ -28,7 +28,7 @@ export const getAuthRedirectUrl = () => {
     const hasProjectBasePath = pathParts[0] && pathParts[0] !== AUTH_CALLBACK_PATH.split('/')[0];
     const basePath = hasProjectBasePath ? `/${pathParts[0]}` : '';
 
-    return `${window.location.origin}${basePath}/${AUTH_CALLBACK_PATH}`;
+    return `${window.location.origin}${basePath}`;
   }
 
   return makeRedirectUri({
@@ -275,7 +275,9 @@ export const resetPassword = async (email) => {
   const configError = missingConfigResponse();
   if (configError) return configError;
 
-  return supabase.auth.resetPasswordForEmail(email);
+  return supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: getAuthRedirectUrl(),
+  });
 };
 
 export const verifyRecoveryOtp = async (email, token) => {
@@ -362,6 +364,48 @@ export const getWorkoutSessions = async (userId, limit = 20) =>
     .order('completed_at', { ascending: false })
     .limit(limit);
 
+export const normalizeWorkoutPlan = (plan) => {
+  if (!plan || typeof plan !== 'object') return null;
+
+  const workoutDays = Array.isArray(plan.workoutDays)
+    ? plan.workoutDays
+        .map((day, index) => {
+          if (!day || typeof day !== 'object') return null;
+
+          const sections = Array.isArray(day.sections)
+            ? day.sections
+                .map((section) => ({
+                  ...section,
+                  title: section?.title || 'Exercises',
+                  exercises: Array.isArray(section?.exercises) ? section.exercises : [],
+                }))
+                .filter((section) => section.exercises.length > 0)
+            : [];
+
+          return {
+            ...day,
+            dayNumber: day.dayNumber || index + 1,
+            label: day.label || `Day ${index + 1}`,
+            type: day.type || 'strength',
+            sections,
+          };
+        })
+        .filter((day) => day?.sections?.length > 0)
+    : [];
+
+  if (workoutDays.length === 0) return null;
+
+  const declaredTotalDays = Number(plan.totalDays);
+
+  return {
+    ...plan,
+    totalDays: Number.isFinite(declaredTotalDays) && declaredTotalDays > 0
+      ? Math.min(declaredTotalDays, workoutDays.length)
+      : workoutDays.length,
+    workoutDays,
+  };
+};
+
 const getLocalDateKey = (dateValue) => {
   const date = dateValue ? new Date(dateValue) : new Date();
   const year = date.getFullYear();
@@ -404,8 +448,9 @@ export const getWorkoutCompletionStatus = async (userId, plan) => {
   const configError = missingConfigResponse();
   if (configError) return configError;
 
-  const workoutDays = plan?.workoutDays || [];
-  const totalDays = plan?.totalDays || workoutDays.length || 0;
+  const normalizedPlan = normalizeWorkoutPlan(plan);
+  const workoutDays = normalizedPlan?.workoutDays || [];
+  const totalDays = normalizedPlan?.totalDays || workoutDays.length || 0;
   const emptyStatus = {
     sessions: [],
     completedDays: 0,
@@ -415,7 +460,7 @@ export const getWorkoutCompletionStatus = async (userId, plan) => {
     nextWorkoutDay: workoutDays[0] || null,
   };
 
-  if (!userId || !plan) {
+  if (!userId || !normalizedPlan) {
     return { data: emptyStatus, error: null };
   }
 
@@ -425,8 +470,8 @@ export const getWorkoutCompletionStatus = async (userId, plan) => {
     .eq('user_id', userId)
     .order('completed_at', { ascending: true });
 
-  if (plan.generatedAt) {
-    query = query.gte('completed_at', plan.generatedAt);
+  if (normalizedPlan.generatedAt) {
+    query = query.gte('completed_at', normalizedPlan.generatedAt);
   }
 
   const { data, error } = await query;
@@ -435,7 +480,7 @@ export const getWorkoutCompletionStatus = async (userId, plan) => {
   const sessions = data || [];
   const completedDateKeys = [...new Set(sessions.map((session) => getLocalDateKey(session.completed_at)))];
   const completedDays = Math.min(completedDateKeys.length, totalDays);
-  const nextDayIndex = Math.min(completedDays, Math.max(workoutDays.length - 1, 0));
+  const nextDayIndex = Math.min(completedDays, workoutDays.length);
 
   return {
     data: {

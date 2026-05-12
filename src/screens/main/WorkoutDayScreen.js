@@ -55,7 +55,8 @@ export default function WorkoutDayScreen({ route, navigation }) {
   const { dayData } = route.params || {};
   const { user, workoutPlan } = useAuth();
 
-  const sections = dayData?.sections || [];
+  const sections = Array.isArray(dayData?.sections) ? dayData.sections : [];
+  const hasValidDayData = Boolean(dayData?.label && sections.length);
   const [activeSectionIdx, setActiveSectionIdx] = useState(0);
   const [completedExercises, setCompletedExercises] = useState({});
   const [alreadyCompletedToday, setAlreadyCompletedToday] = useState(false);
@@ -90,10 +91,10 @@ export default function WorkoutDayScreen({ route, navigation }) {
   const isSectionComplete = (sectionIdx) => {
     const section = sections[sectionIdx];
     if (!section) return false;
-    return section.exercises.every((_, i) => isExerciseDone(sectionIdx, i));
+    return (section.exercises || []).every((_, i) => isExerciseDone(sectionIdx, i));
   };
 
-  const totalExercises = sections.reduce((acc, s) => acc + s.exercises.length, 0);
+  const totalExercises = sections.reduce((acc, s) => acc + (s.exercises?.length || 0), 0);
   const totalDone = Object.values(completedExercises).filter(Boolean).length;
   const progressPct = totalExercises > 0 ? (totalDone / totalExercises) * 100 : 0;
   const targetMinutes = dayData?.targetMinutes || 45;
@@ -108,6 +109,11 @@ export default function WorkoutDayScreen({ route, navigation }) {
   );
 
   const handleFinishWorkout = () => {
+    if (!hasValidDayData) {
+      Alert.alert('Workout Unavailable', 'This workout could not be loaded. Go back and try opening it again.');
+      return;
+    }
+
     if (alreadyCompletedToday) {
       Alert.alert(
         'Workout Already Logged',
@@ -186,6 +192,27 @@ export default function WorkoutDayScreen({ route, navigation }) {
     cardio: '#B85C00',
     rest: '#2E7D32',
   };
+
+  if (!hasValidDayData) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={styles.invalidState}>
+          <Ionicons name="alert-circle-outline" size={42} color={COLORS.maroon} />
+          <Text style={styles.invalidTitle}>Workout Unavailable</Text>
+          <Text style={styles.invalidText}>
+            This workout could not be loaded. Please return to your plan and open it again.
+          </Text>
+          <TouchableOpacity
+            style={styles.invalidButton}
+            onPress={() => navigation.navigate('MainTabs', { screen: 'Workouts' })}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.invalidButtonText}>Back to Workouts</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -473,4 +500,35 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   finishBtnText: { color: COLORS.white, fontWeight: FONTS.bold, fontSize: 16 },
+  invalidState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: SPACING.xl,
+    gap: 12,
+  },
+  invalidTitle: {
+    fontSize: 20,
+    fontWeight: FONTS.bold,
+    color: COLORS.textPrimary,
+    textAlign: 'center',
+  },
+  invalidText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  invalidButton: {
+    marginTop: 8,
+    backgroundColor: COLORS.maroon,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+  },
+  invalidButtonText: {
+    color: COLORS.white,
+    fontSize: 14,
+    fontWeight: FONTS.semiBold,
+  },
 });

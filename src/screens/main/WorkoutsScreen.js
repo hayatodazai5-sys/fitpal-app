@@ -25,7 +25,7 @@ const WorkoutCard = ({ day, completed, locked, isNext, onPress }) => {
     rest: 'leaf-outline',
   };
 
-  const exerciseCount = day.sections?.reduce((acc, s) => acc + s.exercises.length, 0) || 0;
+  const exerciseCount = day.sections?.reduce((acc, s) => acc + (s.exercises?.length || 0), 0) || 0;
 
   const statusText = completed ? 'COMPLETED' : locked ? 'LOCKED' : isNext ? 'NEXT' : null;
 
@@ -113,8 +113,13 @@ export default function WorkoutsScreen({ navigation }) {
   const loadCompletionStatus = async () => {
     if (!user?.id || !workoutPlan) return;
 
-    const { data } = await getWorkoutCompletionStatus(user.id, workoutPlan);
-    if (data) setCompletionStatus(data);
+    try {
+      const { data, error } = await getWorkoutCompletionStatus(user.id, workoutPlan);
+      if (error) throw error;
+      if (data) setCompletionStatus(data);
+    } catch (err) {
+      console.warn('FitPAL workout status load failed:', err);
+    }
   };
 
   const midnightCountdown = useMidnightCountdown(

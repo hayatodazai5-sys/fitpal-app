@@ -90,6 +90,7 @@ export const InputField = ({
   style,
   inputStyle,
   autoCapitalize = 'none',
+  ...inputProps
 }) => (
   <View style={[styles.inputWrapper, style]}>
     {label && <Text style={styles.inputLabel}>{label}</Text>}
@@ -105,6 +106,7 @@ export const InputField = ({
         keyboardType={keyboardType}
         autoCapitalize={autoCapitalize}
         autoCorrect={false}
+        {...inputProps}
       />
     </View>
   </View>
