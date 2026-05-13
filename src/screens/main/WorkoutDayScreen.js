@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Alert,
+  TouchableOpacity, Alert, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,6 +50,23 @@ const ExerciseRow = ({ exercise, index, completed, onToggle }) => (
     </View>
   </TouchableOpacity>
 );
+
+const confirmAction = (title, message, confirmText = 'Yes') => {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    return Promise.resolve(window.confirm(`${title}\n\n${message}`));
+  }
+
+  return new Promise((resolve) => {
+    Alert.alert(
+      title,
+      message,
+      [
+        { text: 'Not yet', style: 'cancel', onPress: () => resolve(false) },
+        { text: confirmText, onPress: () => resolve(true) },
+      ]
+    );
+  });
+};
 
 export default function WorkoutDayScreen({ route, navigation }) {
   const { dayData } = route.params || {};
@@ -108,7 +125,64 @@ export default function WorkoutDayScreen({ route, navigation }) {
     () => setAlreadyCompletedToday(false)
   );
 
-  const handleFinishWorkout = () => {
+  const saveWorkoutSession = async () => {
+    if (saving) return;
+
+    setSaving(true);
+
+    if (user) {
+      const { data: existingSession, error: existingError } = await getTodayWorkoutSession(user.id);
+      if (existingError) {
+        setSaving(false);
+        Alert.alert('Save Failed', existingError.message);
+        return;
+      }
+
+      if (existingSession) {
+        setSaving(false);
+        setAlreadyCompletedToday(true);
+        Alert.alert(
+          'Workout Already Logged',
+          `You already finished a workout today. Next one unlocks in ${midnightCountdown.label}.`
+        );
+        return;
+      }
+
+      const { error } = await logWorkoutSession({
+        user_id: user.id,
+        day_label: dayData.label,
+        day_type: dayData.type,
+        completed_at: new Date().toISOString(),
+        duration_minutes: targetMinutes,
+        calories_burned: estimatedCalories,
+        exercises_completed: totalDone,
+        notes: JSON.stringify({
+          dayNumber: dayData.dayNumber,
+          planGeneratedAt: workoutPlan?.generatedAt,
+        }),
+      });
+      if (error) {
+        setSaving(false);
+        Alert.alert('Save Failed', error.message);
+        return;
+      }
+    }
+
+    setSaving(false);
+    setAlreadyCompletedToday(true);
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.alert('Session saved. Keep up the momentum.');
+      navigation.navigate('MainTabs', { screen: 'Home' });
+      return;
+    }
+
+    Alert.alert('Session Saved', 'Session logged. Keep up the momentum.', [
+      { text: 'Back to Home', onPress: () => navigation.navigate('MainTabs', { screen: 'Home' }) },
+    ]);
+  };
+
+  const handleFinishWorkout = async () => {
     if (!hasValidDayData) {
       Alert.alert('Workout Unavailable', 'This workout could not be loaded. Go back and try opening it again.');
       return;
@@ -123,68 +197,24 @@ export default function WorkoutDayScreen({ route, navigation }) {
     }
 
     if (totalExercises > 0 && totalDone < totalExercises) {
-      Alert.alert('Keep Going', 'Complete every exercise in this workout before logging the day.');
-      return;
+      const shouldLogPartial = await confirmAction(
+        'Log Workout?',
+        `You checked ${totalDone} of ${totalExercises} exercises. Log this session now?`,
+        'Log Workout'
+      );
+
+      if (!shouldLogPartial) return;
+    } else {
+      const confirmed = await confirmAction(
+        'Workout Complete',
+        'Are you done with the workout?',
+        'Yes!'
+      );
+
+      if (!confirmed) return;
     }
 
-    Alert.alert(
-      'Workout Complete',
-      'Are you done with the workout?',
-      [
-        { text: 'Not yet', style: 'cancel' },
-        {
-          text: 'Yes!',
-          onPress: async () => {
-            if (saving) return;
-
-            setSaving(true);
-
-            if (user) {
-              const { data: existingSession, error: existingError } = await getTodayWorkoutSession(user.id);
-              if (existingError) {
-                setSaving(false);
-                Alert.alert('Save Failed', existingError.message);
-                return;
-              }
-
-              if (existingSession) {
-                setSaving(false);
-                setAlreadyCompletedToday(true);
-                Alert.alert(
-                  'Workout Already Logged',
-                  `You already finished a workout today. Next one unlocks in ${midnightCountdown.label}.`
-                );
-                return;
-              }
-
-              const { error } = await logWorkoutSession({
-                user_id: user.id,
-                day_label: dayData.label,
-                day_type: dayData.type,
-                completed_at: new Date().toISOString(),
-                duration_minutes: targetMinutes,
-                calories_burned: estimatedCalories,
-                exercises_completed: totalDone,
-                notes: JSON.stringify({
-                  dayNumber: dayData.dayNumber,
-                  planGeneratedAt: workoutPlan?.generatedAt,
-                }),
-              });
-              if (error) {
-                setSaving(false);
-                Alert.alert('Save Failed', error.message);
-                return;
-              }
-            }
-            setSaving(false);
-            setAlreadyCompletedToday(true);
-            Alert.alert('Session Saved', 'Session logged. Keep up the momentum.', [
-              { text: 'Back to Home', onPress: () => navigation.navigate('MainTabs', { screen: 'Home' }) },
-            ]);
-          },
-        },
-      ]
-    );
+    await saveWorkoutSession();
   };
 
   const TYPE_COLORS = {
